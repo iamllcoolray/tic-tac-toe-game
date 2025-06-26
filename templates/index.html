@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tic Tac Toe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Tic Tac Toe</h1>
+    <div id="mode-buttons">
+    <select id="difficulty">
+        <option value="easy">Easy (Random)</option>
+        <option value="medium">Medium (Minimax)</option>
+        <option value="hard" selected>Hard (Alpha-Beta)</option>
+    </select>
+        <button onclick="setMode('human')">Human vs AI</button>
+        <button onclick="setMode('ai')">AI vs AI</button>
+    </div>
+    <div id="game"></div>
+    <div id="info"></div>
+    <button id="reset" onclick="resetGame()">Reset</button>
+    <script>
+        let board = ["", "", "", "", "", "", "", "", ""];
+        let currentPlayer = "X";
+        let gameMode = "human";
+        let gameOver = false;
+
+        function drawBoard() {
+            const game = document.getElementById("game");
+            game.innerHTML = "";
+            board.forEach((cell, idx) => {
+                const div = document.createElement("div");
+                div.className = "cell";
+                div.textContent = cell;
+                div.onclick = () => makeMove(idx);
+                game.appendChild(div);
+            });
+        }
+
+        function makeMove(idx) {
+            if (board[idx] || gameOver) return;
+            board[idx] = currentPlayer;
+            drawBoard();
+            checkWinner();
+
+            if (!gameOver && gameMode === "human" && currentPlayer === "X") {
+                fetch(`/ai-move`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ board: board })
+                }).then(res => res.json()).then(data => {
+                    board = data.board;
+                    currentPlayer = data.player;
+                    drawBoard();
+                    checkWinner();
+                });
+            }
+        }
+
+        function setMode(mode) {
+            gameMode = mode;
+            resetGame();
+        }
+
+        function checkWinner() {
+            const wins = [
+                [0,1,2],[3,4,5],[6,7,8],
+                [0,3,6],[1,4,7],[2,5,8],
+                [0,4,8],[2,4,6]
+            ];
+            for (let [a,b,c] of wins) {
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                    document.getElementById("info").innerText = `${board[a]} wins!`;
+                    gameOver = true;
+                    return;
+                }
+            }
+            if (!board.includes("")) {
+                document.getElementById("info").innerText = "It's a draw!";
+                gameOver = true;
+            } else {
+                currentPlayer = currentPlayer === "X" ? "O" : "X";
+            }
+        }
+
+        function resetGame() {
+            board = ["", "", "", "", "", "", "", "", ""];
+            currentPlayer = "X";
+            gameOver = false;
+            document.getElementById("info").innerText = "";
+            drawBoard();
+            if (gameMode === "ai") autoPlay();
+        }
+
+        function autoPlay() {
+            if (gameOver) return;
+            fetch(`/ai-move`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ board: board })
+            }).then(res => res.json()).then(data => {
+                board = data.board;
+                currentPlayer = data.player;
+                drawBoard();
+                checkWinner();
+                setTimeout(autoPlay, 500);
+            });
+        }
+
+        drawBoard();
+    </script>
+</body>
+</html>
