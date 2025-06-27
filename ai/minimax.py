@@ -1,10 +1,10 @@
 def best_move(board, player):
-    import time
-    start = time.time()
-
+    node_count = 0
     opponent = 'O' if player == 'X' else 'X'
 
     def minimax(b, is_maximizing):
+        nonlocal node_count
+        node_count += 1
         winner = check_winner(b)
         if winner == player:
             return 1
@@ -43,9 +43,8 @@ def best_move(board, player):
                 best_score = score
                 move = i
 
-    elapsed = (time.time() - start) * 1000
     board[move] = player
-    return board, opponent, elapsed
+    return board, move, node_count
 
 def check_winner(b):
     wins = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]

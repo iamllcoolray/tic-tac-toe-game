@@ -7,106 +7,135 @@
 <body>
     <h1>Tic Tac Toe</h1>
     <div id="mode-buttons">
-    <select id="difficulty">
-        <option value="easy">Easy (Random)</option>
-        <option value="medium">Medium (Minimax)</option>
-        <option value="hard" selected>Hard (Alpha-Beta)</option>
-    </select>
+        <select id="difficulty">
+            <option value="easy">Easy (Random)</option>
+            <option value="medium">Medium (Minimax)</option>
+            <option value="hard" selected>Hard (Alpha-Beta)</option>
+        </select>
         <button onclick="setMode('human')">Human vs AI</button>
         <button onclick="setMode('ai')">AI vs AI</button>
     </div>
     <div id="game"></div>
     <div id="info"></div>
     <button id="reset" onclick="resetGame()">Reset</button>
+
     <script>
-        let board = ["", "", "", "", "", "", "", "", ""];
-        let currentPlayer = "X";
-        let gameMode = "human";
-        let gameOver = false;
+    let aiMoveCount = 0;
+    let nodeCounts = { easy: 0, medium: 0, hard: 0 };
 
-        function drawBoard() {
-            const game = document.getElementById("game");
-            game.innerHTML = "";
-            board.forEach((cell, idx) => {
-                const div = document.createElement("div");
-                div.className = "cell";
-                div.textContent = cell;
-                div.onclick = () => makeMove(idx);
-                game.appendChild(div);
-            });
-        }
+    let board = ["", "", "", "", "", "", "", "", ""];
+    let currentPlayer = "X";
+    let gameMode = "human";
+    let gameOver = false;
 
-        function makeMove(idx) {
-            if (board[idx] || gameOver) return;
-            board[idx] = currentPlayer;
-            drawBoard();
-            checkWinner();
+    function drawBoard() {
+        const game = document.getElementById("game");
+        game.innerHTML = "";
+        board.forEach((cell, idx) => {
+            const div = document.createElement("div");
+            div.className = "cell";
+            div.textContent = cell;
+            div.onclick = () => makeMove(idx);
+            game.appendChild(div);
+        });
+    }
 
-            if (!gameOver && gameMode === "human" && currentPlayer === "X") {
-                fetch(`/ai-move`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ board: board })
-                }).then(res => res.json()).then(data => {
-                    board = data.board;
-                    currentPlayer = data.player;
-                    drawBoard();
-                    checkWinner();
-                });
-            }
-        }
+    function makeMove(idx) {
+        if (board[idx] || gameOver) return;
+        if (gameMode === "human" && currentPlayer !== "X") return;
 
-        function setMode(mode) {
-            gameMode = mode;
-            resetGame();
-        }
-
-        function checkWinner() {
-            const wins = [
-                [0,1,2],[3,4,5],[6,7,8],
-                [0,3,6],[1,4,7],[2,5,8],
-                [0,4,8],[2,4,6]
-            ];
-            for (let [a,b,c] of wins) {
-                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-                    document.getElementById("info").innerText = `${board[a]} wins!`;
-                    gameOver = true;
-                    return;
-                }
-            }
-            if (!board.includes("")) {
-                document.getElementById("info").innerText = "It's a draw!";
-                gameOver = true;
-            } else {
-                currentPlayer = currentPlayer === "X" ? "O" : "X";
-            }
-        }
-
-        function resetGame() {
-            board = ["", "", "", "", "", "", "", "", ""];
-            currentPlayer = "X";
-            gameOver = false;
-            document.getElementById("info").innerText = "";
-            drawBoard();
-            if (gameMode === "ai") autoPlay();
-        }
-
-        function autoPlay() {
-            if (gameOver) return;
-            fetch(`/ai-move`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ board: board })
-            }).then(res => res.json()).then(data => {
-                board = data.board;
-                currentPlayer = data.player;
-                drawBoard();
-                checkWinner();
-                setTimeout(autoPlay, 500);
-            });
-        }
-
+        board[idx] = currentPlayer;
         drawBoard();
-    </script>
+
+        if (checkWinner()) return;
+
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+
+        if (gameMode === "human" && currentPlayer === "O") {
+            setTimeout(aiMove, 300);
+        }
+    }
+
+    function aiMove() {
+        const difficulty = document.getElementById("difficulty").value;
+
+        fetch(`/ai-move`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                board: board,
+                player: currentPlayer,
+                difficulty: difficulty
+            })
+        }).then(res => res.json()).then(data => {
+            board = data.board;
+            currentPlayer = data.player;
+            drawBoard();
+
+            aiMoveCount++;
+
+            // Accumulate nodes explored by difficulty
+            nodeCounts[difficulty] += data.nodesExplored ?? 0;
+
+            displayNodeStats();
+
+            if (checkWinner()) return;
+
+            if (gameMode === "ai") {
+                setTimeout(aiMove, 500);
+            }
+        });
+    }
+
+    function checkWinner() {
+        const wins = [
+            [0,1,2],[3,4,5],[6,7,8],
+            [0,3,6],[1,4,7],[2,5,8],
+            [0,4,8],[2,4,6]
+        ];
+        for (let [a, b, c] of wins) {
+            if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                document.getElementById("info").innerText = `${board[a]} wins!`;
+                gameOver = true;
+                return true;
+            }
+        }
+        if (!board.includes("")) {
+            document.getElementById("info").innerText = "It's a draw!";
+            gameOver = true;
+            return true;
+        }
+        return false;
+    }
+
+    function displayNodeStats() {
+        const info = document.getElementById("info");
+        // Show winner/draw message on first line
+        const firstLine = info.innerText.split("\n")[0] || "";
+        info.innerText = `${firstLine}\nNode counts:\nEasy: ${nodeCounts.easy}\nMinimax: ${nodeCounts.medium}\nAlpha-Beta: ${nodeCounts.hard}`;
+    }
+
+    function resetGame() {
+        board = ["", "", "", "", "", "", "", "", ""];
+        currentPlayer = "X";
+        gameOver = false;
+        aiMoveCount = 0;
+        nodeCounts = { easy: 0, medium: 0, hard: 0 };
+        document.getElementById("info").innerText = "";
+        drawBoard();
+        if (gameMode === "ai") {
+            setTimeout(aiMove, 300);
+        }
+    }
+
+    function setMode(mode) {
+        gameMode = mode;
+        resetGame();
+    }
+
+    drawBoard();
+</script>
+
+
 </body>
 </html>
