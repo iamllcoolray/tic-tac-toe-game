@@ -1,3 +1,4 @@
+import random
 def best_move(board, player):
     node_count = 0
     opponent = 'O' if player == 'X' else 'X'
@@ -39,7 +40,12 @@ def best_move(board, player):
             board[i] = player
             score = minimax(board, False)
             board[i] = ""
-            if score > best_score:
+            if score == best_score:
+                random_num = random.randint(1, 12)
+                if random_num % 4 == 0:
+                    best_score = score
+                    move = i
+            elif score > best_score:
                 best_score = score
                 move = i
 
