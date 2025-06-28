@@ -45,7 +45,7 @@ def best_move(board, player):
                 if random_num % 4 == 0:
                     best_score = score
                     move = i
-            if score > best_score:
+            elif score > best_score:
                 best_score = score
                 move = i
 
